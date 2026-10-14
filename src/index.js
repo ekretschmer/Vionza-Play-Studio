@@ -93,7 +93,7 @@ async function getChannels(env, ctx) {
   try { url = new URL(env.M3U_URL); } catch { return json({ error: 'M3U_URL não é uma URL válida.' }, 500); }
   if (!['https:', 'http:'].includes(url.protocol)) return json({ error: 'A URL da lista precisa usar HTTP ou HTTPS.' }, 500);
   try {
-    const response = await fetch(url.toString(), { headers: { 'User-Agent': 'VionzaStudio/1.0' }, signal: AbortSignal.timeout(15000) });
+    const response = await fetch(url.toString(), { headers: { 'User-Agent': 'VionzaStudio/1.0' }, signal: AbortSignal.timeout(30000) });
     if (!response.ok) return json({ error: `A fonte M3U respondeu HTTP ${response.status}. Confere o link e a autorização de acesso.` }, 502);
     const declared = Number(response.headers.get('content-length') || 0);
     if (declared > MAX_M3U_BYTES) return json({ error: 'A lista é maior que o limite inicial de 5 MB. Precisamos otimizar a importação.' }, 413);
@@ -102,9 +102,15 @@ async function getChannels(env, ctx) {
     if (!text.trimStart().startsWith('#EXTM3U')) return json({ error: 'A resposta não parece ser uma lista M3U válida.' }, 422);
     const channels = parseM3U(text);
     return json({ count: channels.length, channels, note: 'Foram importados apenas nomes e categorias. Endereços de transmissão e credenciais não são enviados ao navegador.' }, 200, { 'Cache-Control': 'private, max-age=180' });
-  } catch (e) {
-    return json({ error: `Não foi possível consultar a fonte M3U: ${e.name === 'TimeoutError' ? 'tempo esgotado' : 'falha de conexão'}.` }, 502);
-  }
+ } catch (e) {
+  const timedOut = e.name === "TimeoutError";
+
+  return json({
+    error: timedOut
+      ? "A fonte M3U demorou mais de 30 segundos para responder."
+      : "Falha ao conectar à fonte M3U.",
+    diagnostic: e.name || "Erro desconhecido"
+  }, 502);
 }
 
 async function route(request, env, ctx) {
@@ -173,7 +179,16 @@ async function route(request, env, ctx) {
         signal: AbortSignal.timeout(90000),
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) return json({ error: result.error?.message || `A API de imagens retornou HTTP ${response.status}.` }, 502);
+
+if (!response.ok) {
+  return json({
+    error: result.error?.message || "Falha na API de imagens.",
+    provider: "OpenAI",
+    providerStatus: response.status,
+    providerCode: result.error?.code || null,
+    providerType: result.error?.type || null
+  }, 502);
+}
       const b64 = result.data?.[0]?.b64_json;
       if (!b64) return json({ error: 'A API não retornou os dados da imagem.' }, 502);
       // Return the generated image directly; no persistent file storage is needed in this MVP.
