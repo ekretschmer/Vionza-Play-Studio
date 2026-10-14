@@ -1,0 +1,7 @@
+# Copie para .dev.vars apenas para testes locais. NUNCA publique este arquivo.
+FOOTBALL_DATA_API_KEY=cole_sua_chave_aqui
+OPENAI_API_KEY=cole_sua_chave_aqui
+OPENAI_IMAGE_MODEL=gpt-image-1
+M3U_URL=https://cole-seu-link-m3u-privado-aqui
+APP_PASSWORD=escolha_uma_senha_forte
+SESSION_SECRET=use_uma_chave_aleatoria_longa_e_privada
